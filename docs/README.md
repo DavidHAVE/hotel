@@ -1,12 +1,14 @@
-# Configuring local .dev domains
+# Configuring local .localhost domains
 
 _This step is totally optional and you can use hotel without it._
 
-To use local `.dev` domain, you need to configure your browser or network to use hotel's proxy auto-config file which is available at `http://localhost:2000/proxy.pac` [[view file content](../src/daemon/views/proxy-pac.js)].
+To use local `.localhost` domain, you need to configure your browser or network to use hotel's proxy auto-config file which is available at `http://localhost:2000/proxy.pac` [[view file content](../src/daemon/views/proxy-pac.pug)].
 
-__Important__ hotel MUST be running before configuring your network or browser so that `http://localhost:2000/proxy.pac` is available. If hotel is started after and you can't access `.dev` domains, simply disable/enable network or restart browser.
+__Important__ hotel MUST be running before configuring your network or browser so that `http://localhost:2000/proxy.pac` is available. If hotel is started after and you can't access `.localhost` domains, simply disable/enable network or restart browser.
 
-You can also edit `~/.hotel/conf.json` to use another Top-level Domain. For example `.test`:
+## Configuring another .tld
+
+You can edit `~/.hotel/conf.json` to use another Top-level Domain than `.localhost`.
 
 ```json
 {
@@ -14,11 +16,11 @@ You can also edit `~/.hotel/conf.json` to use another Top-level Domain. For exam
 }
 ```
 
-Don't forget to restart hotel and reload network or browser configuration.
+__Important__ Don't forget to restart hotel and reload network or browser configuration.
 
 ## System configuration (recommended)
 
-##### OS X
+##### macOS
 
 `Network Preferences > Advanced > Proxies > Automatic Proxy Configuration`
 
@@ -28,7 +30,11 @@ Don't forget to restart hotel and reload network or browser configuration.
 
 ##### Linux
 
-Check your network manager and look for proxy configuration. Use browser configuration as an alternative.
+On Ubuntu
+
+`System Settings > Network > Network Proxy > Automatic`
+
+For other distributions, check your network manager and look for proxy configuration. Use browser configuration as an alternative.
 
 ## Browser configuration
 
@@ -42,7 +48,7 @@ Exit Chrome and start it using the following option:
 # Linux
 $ google-chrome --proxy-pac-url=http://localhost:2000/proxy.pac
 
-# OS X
+# macOS
 $ open -a "Google Chrome" --args --proxy-pac-url=http://localhost:2000/proxy.pac
 ```
 

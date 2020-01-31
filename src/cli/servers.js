@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const chalk = require('chalk')
 const tildify = require('tildify')
 const mkdirp = require('mkdirp')
 const common = require('../common')
@@ -12,64 +13,111 @@ module.exports = {
   ls
 }
 
+function isUrl(str) {
+  return /^(http|https):/.test(str)
+}
+
 // Converts '_-Some Project_Name--' to 'some-project-name'
-function domainize (str) {
-  return str
-    .toLowerCase()
-    // Replace all _ and spaces with -
-    .replace(/(_| )/g, '-')
-    // Trim - characters
-    .replace(/(^-*|-*$)/g, '')
+function domainify(str) {
+  return (
+    str
+      .toLowerCase()
+      // Replace all _ and spaces with -
+      .replace(/(_| )/g, '-')
+      // Trim - characters
+      .replace(/(^-*|-*$)/g, '')
+  )
 }
 
-function getId (cwd) {
-  return domainize(path.basename(cwd))
+function getId(cwd) {
+  return domainify(path.basename(cwd))
 }
 
-function getServerFile (id) {
+function getServerFile(id) {
   return `${serversDir}/${id}.json`
 }
 
-function add (cmd, opts = {}) {
+function add(param, opts = {}) {
   mkdirp.sync(serversDir)
 
-  const cwd = opts.d || process.cwd()
-  const id = opts.n || getId(cwd)
+  const cwd = opts.dir || process.cwd()
+  const id = opts.name ? domainify(opts.name) : getId(cwd)
+
   const file = getServerFile(id)
-  const obj = { cwd, cmd }
 
-  if (opts.o) obj.out = opts.o
+  let conf = {}
 
-  obj.env = {}
-
-  // By default, save PATH env for version managers users
-  obj.env.PATH = process.env.PATH
-
-  // Copy other env option
-  if (opts.e && process.env[opts.e]) {
-    obj.env[opts.e] = process.env[opts.e]
+  if (opts.xfwd) {
+    conf.xfwd = opts.xfwd
   }
 
-  // Copy port option
-  if (opts.p) {
-    obj.env.PORT = opts.p
+  if (opts.changeOrigin) {
+    conf.changeOrigin = opts.changeOrigin
   }
 
-  const data = JSON.stringify(obj, null, 2)
+  if (opts.httpProxyEnv) {
+    conf.httpProxyEnv = opts.httpProxyEnv
+  }
+
+  if (isUrl(param)) {
+    conf = {
+      target: param,
+      ...conf
+    }
+  } else {
+    conf = {
+      cwd,
+      cmd: param,
+      ...conf
+    }
+
+    if (opts.o) conf.out = opts.o
+
+    conf.env = {}
+
+    // By default, save PATH env for version managers users
+    conf.env.PATH = process.env.PATH
+
+    // Copy other env option
+    if (opts.env) {
+      opts.env.forEach(key => {
+        const value = process.env[key]
+        if (value) {
+          conf.env[key] = value
+        }
+      })
+    }
+
+    // Copy port option
+    if (opts.port) {
+      conf.env.PORT = opts.port
+    }
+  }
+
+  const data = JSON.stringify(conf, null, 2)
 
   console.log(`Create ${tildify(file)}`)
   fs.writeFileSync(file, data)
 
-  if (obj.out) {
-    const logFile = tildify(path.resolve(obj.out))
+  // if we're mapping a domain to a URL there's no additional info to output
+  if (conf.target) return
+
+  // if we're mapping a domain to a local server add some info
+  if (conf.out) {
+    const logFile = tildify(path.resolve(conf.out))
     console.log(`Output ${logFile}`)
   } else {
-    console.log('Output No log file specified (use \'-o app.log\')')
+    console.log("Output No log file specified (use '-o app.log')")
+  }
+
+  if (!opts.p) {
+    console.log("Port Random port (use '-p 1337' to set a fixed port)")
   }
 }
 
-function rm (name) {
-  const id = getId(name)
+function rm(opts = {}) {
+  const cwd = process.cwd()
+  const id = opts.n || getId(cwd)
   const file = getServerFile(id)
 
   console.log(`Remove  ${tildify(file)}`)
@@ -81,17 +129,32 @@ function rm (name) {
   }
 }
 
-function ls () {
+function ls() {
   mkdirp.sync(serversDir)
 
   const list = fs
     .readdirSync(serversDir)
-    .map((file) => {
+    .map(file => {
       const id = path.basename(file, '.json')
       const serverFile = getServerFile(id)
-      const server = JSON.parse(fs.readFileSync(serverFile))
-      return `${id} - ${server.cwd}\n${server.cmd}`
+      let server
+
+      try {
+        server = JSON.parse(fs.readFileSync(serverFile))
+      } catch (error) {
+        // Ignore mis-named or malformed files
+        return
+      }
+
+      if (server.cmd) {
+        return `${id}\n${chalk.gray(tildify(server.cwd))}\n${chalk.gray(
+          server.cmd
+        )}`
+      } else {
+        return `${id}\n${chalk.gray(server.target)}`
+      }
     })
+    .filter(item => item)
     .join('\n\n')
 
   console.log(list)
